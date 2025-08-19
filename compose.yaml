@@ -1,0 +1,43 @@
+services:
+  backend:
+    build: ./backend
+    container_name: backend-dev
+    env_file:
+      - ./env/backend.env
+    depends_on:
+      - db
+    networks:
+      - backend-net
+      - mlflow-shared-net
+    restart: on-failure
+  frontend:
+    build: ./frontend
+    container_name: frontend-dev
+    networks:
+      - backend-net
+      - frontend-net
+    ports:
+      - "3000:80"
+  db:
+    image: postgres:15
+    container_name: backend-db
+    hostname: backend-db
+    env_file:
+      - ./env/db.env
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend-net
+      - mlflow-shared-net
+
+volumes:
+  postgres_data:
+
+networks:
+  backend-net:
+  frontend-net:
+  mlflow-shared-net:
+    external: true
+    name: mlflow-shared-net
+  
