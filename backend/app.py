@@ -19,15 +19,23 @@ import threading
 import logging
 import ModelTraining
 import Preprocessing
+from queue import Queue
 
 load_dotenv()
 
 fp16_mode = torch.cuda.is_available()
 
 app = Flask(__name__)
+# logger = logging.getLogger(__name__)
 
-logging.basicConfig(filename="logs/app.log",filemode="a",format="%(asctime)s - %(levelname)s - %(message)s",level=logging.INFO)
-logging.info("Ilk log tutuldu !")
+# logging.basicConfig(format="%(asctime)s - %(levelname)s - %(message)s",level=logging.INFO,
+#                     handlers=[
+#                         logging.FileHandler("logs/app.log"),
+#                         logging.StreamHandler()
+#                     ])
+# logger.info("Ilk log tutuldu !")
+
+train_queue = Queue()
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI")
@@ -44,7 +52,7 @@ engine = create_engine(DATABASE_URL)
 Base = automap_base()
 Base.prepare(engine, reflect=True, schema="public")
 User = Base.classes.users
-
+Used_files = Base.classes.used_files
 SessionLocal = sessionmaker(bind=engine)
 
 @app.route('/api/v1/auth/login', methods=['POST'])
@@ -97,10 +105,7 @@ def upload_file():
     except:
         return jsonify({"error":"S3'e kaydedilemedi"}), 400
 
-    
-@app.route("/api/v1/admin/list-buckets", methods=["GET"])
-def list_buckets():
-    logging.info("bucket listelendi")
+def get_all_s3_keys():
     s3_client = boto3.client('s3',
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
@@ -112,6 +117,13 @@ def list_buckets():
     for contents in response['Contents']:
         contents_keys.append(contents['Key'])
     
+    return contents_keys
+    
+@app.route("/api/v1/admin/list-buckets", methods=["GET"])
+def list_buckets():
+    
+    contents_keys = get_all_s3_keys()
+
     return jsonify({"files": contents_keys})
 
 def background_finetune(text):
@@ -125,26 +137,56 @@ def background_finetune(text):
         ModelTraining.finetune(model, tokenizer, tokenized_dataset)
         logging.info("finetuning bitti")
 
+def worker():
+    while True:
+        text = train_queue.get()
+        if text is None:
+            break
+        try:
+            background_finetune(text)
+        except Exception as e:
+            print("Eğitim hatası:", e)
+        finally:
+            train_queue.task_done()
+
+threading.Thread(target=worker, daemon=True).start()
+
 @app.route("/api/v1/admin/object-name", methods=["POST"])
 def take_file():
     s3_client = boto3.client('s3',
         aws_access_key_id=AWS_ACCESS_KEY_ID,
         aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
+    db = SessionLocal()
+    used_filenames = db.query(Used_files.filename).all()
+    used_filenames = [filename[0] for filename in used_filenames]
+    contents_keys = get_all_s3_keys()
     try:
-        data = request.get_json()
-        object_name = data.get('object_name')
-        print("[*] İstek geldi, object_name:", object_name)
+        # data = request.get_json()
+        # object_name = data.get('object_name')
+        # print("İstek geldi, object_name:", object_name)
+        non_training = [name for name in contents_keys if name not in used_filenames]
         
-        pdf = s3_client.get_object(Bucket=BUCKET_NAME, Key=object_name)['Body']
-        reader = PdfReader(BytesIO(pdf.read()))
-        text = Preprocessing.pdf_to_text(reader)
+        if not non_training:
+            db.close()
+            return jsonify({'message': 'Tüm dosyalar daha önce eğitilmiş.'}), 200
 
-        thread = threading.Thread(target=background_finetune, args=(text,))
-        thread.start()
+        for object_name in non_training:
+            file = Used_files(filename=object_name)
+            db.add(file)
+            db.commit()    
 
+            pdf = s3_client.get_object(Bucket=BUCKET_NAME, Key=object_name)['Body']
+            reader = PdfReader(BytesIO(pdf.read()))
+            text = Preprocessing.pdf_to_text(reader)
+
+            # thread = threading.Thread(target=background_finetune, args=(text,))
+            # thread.start()
+            train_queue.put(text)
+        db.close()
         return jsonify({'message': f'Fine tuning başlatıldı'})
     
     except Exception as e:
+        db.close()
         return jsonify({"message": f"Hata: {str(e)}"}), 400
 
 try:

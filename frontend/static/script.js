@@ -99,46 +99,79 @@ async function upload_file() {
 
 }
 
+// async function list_buckets() {
+//     try {
+//       const res = await fetch('/api/v1/admin/list-buckets');
+//       const data = await res.json();
+//       const list = document.getElementById('fileList');
+//       list.innerHTML = '';
+//       data.files.forEach((file, i) => {
+//         const li = document.createElement('li');
+//         li.innerHTML = `
+//           <label>
+//             <input type="radio" name="file" value="${file}">
+//             ${file}
+//           </label>
+//         `;
+//         list.appendChild(li);
+//       });
+//     } catch(error) {
+//       alert(error);
+//     }
+// }
+
 async function list_buckets() {
-    try {
-      const res = await fetch('/api/v1/admin/list-buckets');
-      const data = await res.json();
-      const list = document.getElementById('fileList');
-      list.innerHTML = '';
-      data.files.forEach((file, i) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <label>
-            <input type="radio" name="file" value="${file}">
-            ${file}
-          </label>
-        `;
-        list.appendChild(li);
-      });
-    } catch(error) {
-      alert(error);
-    }
+  try {
+    const res = await fetch('/api/v1/admin/list-buckets');
+    const data = await res.json();
+    const list = document.getElementById('fileList');
+    list.innerHTML = '';
+
+    data.files.forEach((file) => {
+      const li = document.createElement('li');
+      li.textContent = file; 
+      list.appendChild(li);
+    });
+
+  } catch (error) {
+    alert(error);
+  }
 }
 
+// async function send_object_name() {
+//     const selected_file = document.querySelector("input[name='file']:checked"); 
+//     if(!selected_file){
+//       alert("Eğitim için bir dosya seçiniz!");
+//     }
+
+//     const file_name = selected_file.value
+
+//     const res = await fetch("/api/v1/admin/object-name",{
+//       method: "POST",
+//       headers: {
+//         "Content-type": "application/json"
+//       },
+//       body: JSON.stringify({object_name : file_name})
+//     })
+
+//     const message = await res.json()
+
+//     alert(`${message.message}`)
+// }
+
 async function send_object_name() {
-    const selected_file = document.querySelector("input[name='file']:checked"); 
-    if(!selected_file){
-      alert("Eğitim için bir dosya seçiniz!");
-    }
-
-    const file_name = selected_file.value
-
     const res = await fetch("/api/v1/admin/object-name",{
-      method: "POST",
-      headers: {
-        "Content-type": "application/json"
-      },
-      body: JSON.stringify({object_name : file_name})
-    })
+      method: "POST"
+    });
 
-    const message = await res.json()
+    const data = await res.json();
 
-    alert(`${message.message}`)
+    if(res.ok){
+      alert(data.message)
+    }
+    else{
+      alert(data.message)
+    }
 }
 
 async function chatbot() {

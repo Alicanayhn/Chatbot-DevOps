@@ -36,8 +36,7 @@ def finetune(model, tokenizer, tokenized_dataset, output_dir="./distilgpt2-finet
 
         mlflow.pytorch.log_model(
             model,
-            artifact_path="model", 
-            registered_model_name="distilgpt2-chatbot"
+            artifact_path="model",
         )
 
         mlflow.log_params({
