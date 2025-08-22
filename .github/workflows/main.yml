@@ -1,1 +1,33 @@
+# name: Actions for Chatbot-DevOps
+
+# on:
+#   workflow_dispatch:
+#   push:
+#     branches:
+#         - main
+#         - dev
+# jobs:
+#     DEV:
+#         runs-on: ubuntu-latest
+#         steps:
+#             - name: Take file from repo
+#               uses: actions/checkout@v4
+             
+#             - name: Create env folder
+#               run: | 
+#                 mkdir env
+            
+#             - name: Take env files from secrets for backend
+#               run: echo "${{ secrets.BACKEND_ENV }}" > env/backend.env
+
+#             - name: Take env files from secrets for database
+#               run: echo "${{ secrets.DB_ENV }}" > env/db.env
+
+#             - name: Take env files from secrets for pgadmin
+#               run: echo "${{ secrets.PGADMIN_ENV }}" > env/pgadmin.env
+            
+#             - name: Take env files from secrets for application
+#               run: echo "${{ secrets.APP_ENV }}" > backend/.env
+
+            
 
